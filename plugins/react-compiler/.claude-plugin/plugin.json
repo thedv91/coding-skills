@@ -1,7 +1,7 @@
 {
   "name": "react-compiler",
-  "description": "Write React components and hooks that are fully compatible with React Compiler's automatic memoization: pure components, no props/state mutation, side effects out of render, and no manual useMemo/useCallback/React.memo.",
-  "version": "1.0.0",
+  "description": "Write React components and hooks that are fully compatible with React Compiler's automatic memoization: no try/catch in component or hook bodies (the #1 silent bail-out), pure components, no props/state mutation, side effects out of render, and hooks at the top level.",
+  "version": "1.1.0",
   "author": {
     "name": "Harry",
     "email": "thedv91@gmail.com"

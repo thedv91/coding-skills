@@ -2,14 +2,18 @@
 name: react-compiler
 description: >
   Write React components and hooks that are fully compatible with React Compiler's
-  automatic memoization. Apply when writing any new component or hook, or when
-  reviewing existing code before enabling the compiler: ensures components are pure,
-  props/state are never mutated, side effects stay outside render, and manual
-  useMemo/useCallback/React.memo are removed in favor of compiler-handled optimization.
+  automatic memoization. **Top rule: never put `try/catch` (or `try/finally`) inside a
+  component body or custom hook body — the compiler cannot reason across exception
+  control flow and silently bails out of memoizing the whole function. Extract it to a
+  module-scope helper.** Also: components stay pure, props/state are never mutated,
+  side effects stay outside render, hooks stay at the top level, and new code leans on
+  compiler-handled memoization instead of reaching for useMemo/useCallback by reflex.
+  Apply when writing or editing any component or custom hook, and when reviewing hooks,
+  effects, memoization, render-time logic, or state before enabling the compiler.
   Stack: React 17+, React 18+, React 19+.
 license: MIT
 metadata:
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # react-compiler
@@ -25,10 +29,19 @@ causes the compiler to silently skip optimization or produce incorrect behavior.
   re-renders, caches expensive calculations inside render.
 - **Does not**: memoize arbitrary helper functions called from components; memoization
   is per-component, not shared across the tree.
-- **Result**: remove manual memoization — the compiler is as precise or more precise
-  than hand-written `useMemo`/`useCallback`.
+- **Result**: new code rarely needs hand-written `useMemo`/`useCallback` for
+  performance — the compiler's inference is usually as precise or more precise.
+  Existing manual memoization is not something to sweep out; see
+  [Manual memoization alongside the compiler](#manual-memoization-alongside-the-compiler).
 
-## Rules of React — the compiler enforces all of these
+## Bail-outs are silent
+
+When the compiler meets code it cannot prove safe, it **skips optimizing that scope**
+rather than emitting wrong code. There is no build error and no warning — the component
+just quietly stops being memoized. Assume nothing; verify with the tools in
+[Detection](#detection).
+
+## Hard rules — Rules of React
 
 Break any rule and the compiler will either bail out of optimizing that component or
 produce a bug.
@@ -114,7 +127,7 @@ const btn = <Button config={config} />;
 
 ### 5. Call hooks only at the top level
 
-Never inside conditions, loops, or nested functions.
+Never inside conditions, loops, early returns, or nested/non-React functions.
 
 ```tsx
 // ❌
@@ -130,52 +143,157 @@ function Profile({ isAdmin }: { isAdmin: boolean }) {
 }
 ```
 
-### 6. Never call component functions directly
+### 6. Never call component functions directly, never pass hooks as values
 
-Always render via JSX, never as a plain function call.
+Always render via JSX, never as a plain function call. Hooks are called, not passed
+around — a hook stored in a variable or handed to another function is invisible to
+both the linter and the compiler.
 
 ```tsx
 // ❌ — bypasses all of React's rendering rules
 const content = MyComponent({ title });
+// ❌ — hook as a value
+const useIt = flag ? useFoo : useBar;
 
 // ✅
 const content = <MyComponent title={title} />;
 ```
 
-## Manual memoization: remove it, let the compiler work
+### 7. Declare every effect dependency
 
-With React Compiler enabled, hand-written memoization becomes **noise** — it makes
-code harder to read and can actually interfere with the compiler's analysis.
+Don't suppress `exhaustive-deps`. When a value must be read at its latest without
+re-triggering the effect, extract that read into `useEffectEvent` rather than lying
+about the dependency array.
+
+### 8. Don't read `ref.current` during render
+
+Refs are mutable and invisible to the compiler's dependency analysis. Read and write
+them only in effects and event handlers.
+
+### 9. Don't call `setState` unconditionally during render
+
+That's an infinite render loop. Derive the value inline instead, or sync via an effect
+if it genuinely cannot be derived.
+
+## Concrete anti-patterns (ranked by how often they slip in)
+
+### #1 — `try / catch` inside a component or custom hook body (HARD bail-out)
+
+**This is the single biggest cause of silent bail-outs.** The compiler's static analysis
+cannot safely memoize across exception control flow, so the moment it sees a
+`try { … } catch { … }` (or `try { … } finally { … }`) inside a component body or custom
+hook body, it **skips memoization for the entire function** — no error, no lint squiggle
+in many setups, just zero benefit. It propagates: a bailed-out hook typically takes its
+caller components down with it.
+
+The fix is always the same: **move the `try/catch` into a module-scope helper** and let
+the hook/component call the helper. The compiler then sees a plain call site and can
+memoize freely.
 
 ```tsx
-// ❌ Before — verbose and subtly broken
-// (arrow function inside map creates a new ref every render,
-// defeating the useCallback even though it looks correct)
-const ExpensiveList = memo(function ExpensiveList({ data, onClick }) {
-  const processed = useMemo(() => expensiveSort(data), [data]);
-  const handleClick = useCallback((item) => onClick(item.id), [onClick]);
-  return processed.map(item => (
-    <Item key={item.id} onClick={() => handleClick(item)} />
-  ));
-});
+// ❌ try/catch in hook body → compiler bails out on useCountryCode AND on any
+//    caller component that uses it
+export function useCountryCode(): string {
+  return useMemo(() => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      return getCountryForTimezone(tz)?.id ?? "default";
+    } catch {
+      return "default";
+    }
+  }, []);
+}
 
-// ✅ After — compiler handles memoization correctly
-function ExpensiveList({ data, onClick }) {
-  const processed = expensiveSort(data);
-  const handleClick = (item) => onClick(item.id);
-  return processed.map(item => (
-    <Item key={item.id} onClick={() => handleClick(item)} />
-  ));
+// ✅ try/catch lives in a module-scope helper; hook body is a single return.
+//    Note: useMemo is also dropped — the compiler memoizes the call automatically.
+function detectCountryCode(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return getCountryForTimezone(tz)?.id ?? "default";
+  } catch {
+    return "default";
+  }
+}
+
+export function useCountryCode(): string {
+  return detectCountryCode();
 }
 ```
 
-**Keep** `useMemo`/`useCallback` only when you need the value as a stable reference
-for Effect dependencies (not for performance).
+**Where `try/catch` is fine**: inside module-scope helpers, inside event handlers
+(already off the render path), and inside an effect callback that is a single inline
+arrow with no surrounding render-path scope. Anything else — including `try/finally`
+used for cleanup orchestration — extract to module scope.
+
+### #2 — `useMemo([])` wrapping an environment read
+
+A hook reads a browser global (timezone, locale, `navigator.*`, `matchMedia`, …) and
+wraps it in `useMemo` with `[]` to "compute once". The impure read is the problem, not
+the `useMemo`: lift it into a module-scope helper — same fix as #1. Once the hook body
+is a trivial pure call, the `[]` memo has nothing left to do and can go with it.
+
+### #3 — Inline imperative orchestration inside a hook
+
+Async sequences, retry loops, cleanup chains — move the body into a module-scope helper
+that receives what it needs from the hook, e.g.
+`executeAction(params, { setError, setIsLoading })`. Hooks stay thin (state + wiring),
+which is both easier for the compiler to reason about and easier to unit-test. See
+`detectCountryCode` under #1 for the minimal shape.
+
+## Authorship conventions
+
+- **In new code, don't reach for `useMemo` / `useCallback` / `React.memo` by reflex.**
+  Write the plain version first and let the compiler memoize it. Add them deliberately
+  when there's a reason: a value that needs stable identity for an external consumer
+  (a library hook's effect dep, a non-React subscriber), or a hot path where profiling
+  shows the compiler missed something.
+- **Prefer module-scope pure helpers for imperative logic** — see anti-pattern #3.
+- **Destructure stable primitives out of library-hook results** instead of closing over
+  the whole object:
+
+  ```tsx
+  const { data } = useQuery(...);   // ✅ stable
+  useEffect(() => doThing(data), [data]);
+  ```
+
+## Manual memoization alongside the compiler
+
+Existing `useMemo` / `useCallback` / `React.memo` is **not a violation** and is not
+something to sweep out of a codebase. The compiler reads it, tries to preserve the
+guarantees it provides, and generally leaves correct memoization alone. Much of it
+also carries intent the compiler can't infer — a stable identity some external
+consumer relies on, a deliberately narrowed dependency, a documented hot path. Leave
+it be unless you know why it's there.
+
+What matters for compiler compatibility:
+
+- **A hand-written memo whose dependencies don't match what the compiler infers** —
+  a missing dep, a suppressed `exhaustive-deps`, a dep list that silently lies — is a
+  case the compiler can't validate, so it bails out of that component. The fix is the
+  wrong dependency, not the `useMemo`.
+- **A memo defeated by something inside it** still costs a render. Classic shape: a
+  `useCallback` that an inline arrow in `.map()` re-wraps every render, so the stable
+  identity never reaches the child. Worth noticing when you're already in the file —
+  but it's a correctness/perf observation, not a compiler rule.
+- **Memoization is not the compiler's business to verify beyond that.** If a component
+  is memoized correctly by hand and by the compiler, both are fine.
+
+## Detection
+
+| Method                                           | When                                                            |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| `eslint-plugin-react-hooks` v6+                  | Authorship — inline squiggles; compiler rules are merged into this plugin (the standalone `eslint-plugin-react-compiler` is deprecated) |
+| React DevTools ✨ badge                          | Runtime — components the compiler memoized are marked with ✨   |
+| `npx react-compiler-healthcheck --src "path/**"` | CI / pre-commit — static scan, file-scoped                       |
+
+The linter does not catch every bail-out — notably it can stay silent on the
+`try/catch` case above. Treat the ✨ badge and the healthcheck as the ground truth.
 
 ## Opt-out: "use no memo"
 
 Add the directive at the top of a component or hook to tell the compiler to skip it.
-Use this as a **temporary escape hatch** while fixing violations, not permanently.
+Use this as a **temporary escape hatch** while fixing violations, not permanently —
+every use is code the compiler can't help, so justify it in a comment.
 
 ```tsx
 function BrokenComponent() {
@@ -187,12 +305,6 @@ function BrokenComponent() {
 For gradual rollout, `compilationMode: 'annotation'` in the compiler config means
 only functions with `"use memo"` are compiled — the inverse of opt-out.
 
-## ESLint
-
-Install `eslint-plugin-react-compiler` to catch Rules of React violations before
-they reach the compiler. It reports mutations, conditional hooks, and other
-violations that would cause the compiler to bail out silently.
-
 ## What the compiler cannot optimize
 
 - **Arbitrary helper functions** that are not components or hooks.
@@ -201,18 +313,22 @@ violations that would cause the compiler to bail out silently.
 
 ## Checklist when writing a component
 
-1. Does every render path return the same output for the same inputs?
-2. Are props, state, and hook return values treated as read-only?
-3. Are all mutations done on locally created values, not on inputs?
-4. Are hooks called unconditionally at the top level?
-5. Are all side effects inside `useEffect`, event handlers, or async functions —
-   not during render?
-6. Is there any `useMemo`/`useCallback`/`React.memo` added purely for performance?
-   Remove it — the compiler handles it.
-7. Any `"use no memo"` left in place? Remove once violations are fixed.
+1. Any `try/catch` or `try/finally` in the component/hook body? Extract it to
+   module scope — this is the #1 silent bail-out.
+2. Does every render path return the same output for the same inputs?
+3. Are props, state, and hook return values treated as read-only?
+4. Are all mutations done on locally created values, not on inputs?
+5. Are hooks called unconditionally at the top level, and never passed as values?
+6. Are all side effects inside `useEffect`, event handlers, or async functions —
+   not during render? No `ref.current` reads or unconditional `setState` in render?
+7. Are all effect deps declared, with `useEffectEvent` instead of a suppression?
+8. If you added `useMemo`/`useCallback`/`React.memo`, can you name the reason?
+   If it was reflex, try the plain version — the compiler likely covers it.
+9. Any `"use no memo"` left in place? Remove once violations are fixed.
 
 ## Reference
 
 - React Compiler overview: https://react.dev/learn/react-compiler
 - Rules of React: https://react.dev/reference/rules
 - Incremental adoption: https://react.dev/learn/react-compiler/incremental-adoption
+- try/catch silent bail-out: https://github.com/facebook/react/issues/35644
