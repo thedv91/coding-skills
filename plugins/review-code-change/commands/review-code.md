@@ -29,8 +29,11 @@ If TARGET is still empty, **detect the repo's default branch — do NOT assume
 git rev-parse --abbrev-ref origin/HEAD   # e.g. "origin/dev" → TARGET = dev
 ```
 
-If `origin/HEAD` is unset, infer from `git branch -rl 'origin/{main,master,dev,develop}'`
-(prefer in that order) — and only then fall back to `main`. Do NOT rely on
+If `origin/HEAD` is unset, infer from
+`git branch -rl origin/main origin/master origin/dev origin/develop`
+(prefer in that order; the patterns must be listed separately — git's pattern
+matching does not expand `{a,b}` braces, so a single quoted brace pattern
+silently matches nothing) — and only then fall back to `main`. Do NOT rely on
 `${1:-main}`-style shell defaulting anywhere. Resolve TARGET yourself, then use
 it verbatim below — and record in the report's **Scope & evidence** whether
 TARGET was user-supplied or auto-detected.
@@ -39,7 +42,7 @@ Now pin down which _ref_ TARGET means, and stop early on the degenerate cases:
 
 ```
 git rev-parse --abbrev-ref HEAD
-git fetch --quiet 2>/dev/null; true
+git fetch --quiet || echo "FETCH FAILED — origin refs may be stale"
 git rev-parse --verify --quiet origin/<TARGET>
 git rev-parse --verify --quiet <TARGET>
 ```
@@ -49,10 +52,12 @@ git rev-parse --verify --quiet <TARGET>
   already merged upstream as if they were new — every finding on them is a
   phantom. Only fall back to the local ref when there is no remote-tracking one,
   and **say in the report which ref you compared against**.
-- **If the fetch failed** (offline, auth, no remote), `origin/<TARGET>` is only
-  as fresh as the last successful fetch. Still prefer it — but don't let the
-  `; true` swallow the fact: state in **Scope & evidence** that the fetch
-  failed and the ref may be stale.
+- **If the fetch failed** — the `FETCH FAILED` marker printed (or git's own
+  error did) — `origin/<TARGET>` is only as fresh as the last successful fetch.
+  Still prefer it, but state in **Scope & evidence** that the fetch failed and
+  the ref may be stale. Don't let the failure stop the review: the `||` marker
+  exists precisely so a dead remote degrades to a stale-ref warning, not an
+  abort.
 - Neither ref exists → list branches (`git branch -a`) and ask the user. STOP.
 - The resolved ref **is** the current branch (HEAD == TARGET) → report that there
   is nothing to compare and STOP.
