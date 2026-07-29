@@ -1,7 +1,7 @@
 {
   "name": "review-code-change",
   "description": "Review the diff of the current git branch against a target branch. Ships the multi-agent review-code-change skill (extensible standards: security, performance, business logic, React/Next.js/Node/TypeScript) and the /review-code slash command (blast-radius mapping grounded in real test/typecheck/lint output). Read-only git.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Harry",
     "email": "thedv91@gmail.com"
