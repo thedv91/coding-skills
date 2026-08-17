@@ -6,6 +6,7 @@ A Claude Code [plugin marketplace](https://code.claude.com/docs/en/plugin-market
 
 | Plugin | Description |
 | --- | --- |
+| `adaptive-review` | Two-mode review of the current branch's diff. **Minimal** walks the code against bundled markdown checklists only (git + Read). **Advanced** adds blast radius via codegraph/serena, independent reviewer + verifier agents, and browser observation of runtime-class findings via agent-browser. Frontend-first (React/TypeScript/Next.js), stack-agnostic core, per-repo criteria via `.claude/review-skills.md`. Invoke with `/adaptive-review:adaptive-review [minimal\|advanced] [target]`. |
 | `review-code-change` | Review the diff of the current branch against a target branch against extensible standards (security, performance, business logic, React/Next.js/Node/TypeScript). Read-only git. Invoke with `/review-code-change:review-code-change`. |
 | `react-compiler` | Write React components and hooks fully compatible with React Compiler's automatic memoization. |
 | `react-effect-event` | Use React's `useEffectEvent` to separate reactive dependencies from non-reactive latest-value reads inside Effects. React 19.2+. |
@@ -16,6 +17,7 @@ Add the marketplace, then install the plugins you want:
 
 ```shell
 /plugin marketplace add thedv91/skills
+/plugin install adaptive-review@thedv91-skills
 /plugin install review-code-change@thedv91-skills
 /plugin install react-compiler@thedv91-skills
 /plugin install react-effect-event@thedv91-skills

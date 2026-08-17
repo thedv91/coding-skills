@@ -1,0 +1,24 @@
+{
+  "name": "adaptive-review",
+  "description": "Two-mode code review of the current branch's diff. Minimal mode walks the changed code against bundled markdown checklists (git + Read only, no agents, no MCP). Advanced mode adds blast-radius mapping via codegraph/serena, independent reviewer + verifier agents, and browser observation of runtime-class findings via agent-browser. Frontend-first (React/TypeScript/Next.js) with a stack-agnostic core; extend by adding a checklist file, and add per-repo criteria via .claude/review-skills.md. Read-only git.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Harry",
+    "email": "thedv91@gmail.com"
+  },
+  "homepage": "https://github.com/thedv91/skills",
+  "repository": "https://github.com/thedv91/skills",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "git",
+    "diff",
+    "pre-merge",
+    "react",
+    "typescript",
+    "frontend",
+    "codegraph",
+    "serena",
+    "agent-browser"
+  ]
+}
