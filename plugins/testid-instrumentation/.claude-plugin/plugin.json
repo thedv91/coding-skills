@@ -1,0 +1,22 @@
+{
+  "name": "testid-instrumentation",
+  "description": "Add stable data-testid attributes that serve two jobs at once: durable e2e selectors, and identity — an inspected DOM node greps straight back to the component that rendered it. No second attribute. Detects the project's existing attribute name and naming convention instead of imposing one; framework-agnostic (React, Vue, Angular, Svelte, Solid, server-side templates).",
+  "version": "1.0.0",
+  "author": {
+    "name": "Harry",
+    "email": "thedv91@gmail.com"
+  },
+  "homepage": "https://github.com/thedv91/skills",
+  "repository": "https://github.com/thedv91/skills",
+  "license": "MIT",
+  "keywords": [
+    "data-testid",
+    "e2e",
+    "playwright",
+    "cypress",
+    "testing-library",
+    "selectors",
+    "debugging",
+    "component-identity"
+  ]
+}

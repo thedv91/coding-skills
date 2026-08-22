@@ -3,13 +3,14 @@ name: auto-commit
 description: >
   Commit tracked git changes after any build or task completes, using
   Conventional Commits. Assesses scope with `git status` and `git diff --stat
-  HEAD`: small changes (<= 5 files OR <= 150 line delta) become one commit;
-  larger changes are split into multiple logical commits grouped by
-  architectural layer (config -> data -> logic -> API -> UI -> tests -> docs).
+  HEAD`: a diff that tells one story becomes one commit, however many files it
+  touches; a diff carrying changes a reviewer would read or revert separately is
+  split into logical commits grouped by architectural layer (config -> data ->
+  logic -> API -> UI -> tests -> docs).
   Trigger on "/auto-commit", "commit these changes", "save this", "wrap up", or
   after a feature/fix has been verified to work. Pass `--dry-run` to print the
-  planned commits without executing. Commit-only: never stages with `-A`/`.`,
-  never amends, never pushes. Depends only on `git`.
+  planned commits without executing. Commit-only — never amends, never pushes.
+  Depends only on `git`.
 license: MIT
 metadata:
   version: "1.0.0"
@@ -18,12 +19,8 @@ metadata:
 # auto-commit
 
 Commit the **tracked** changes in the working tree. Decide between a single
-commit and several logical commits based on the size of the change, write a
+commit and several logical commits by how the diff reads to a reviewer, write a
 Conventional Commits message for each, and report what was committed.
-
-This skill **only commits**. It never pushes, never amends, never force-adds
-ignored files, and never stages with `git add -A` or `git add .` — every
-`git add` names specific files.
 
 ## Invocation
 
@@ -72,13 +69,19 @@ porcelain status identifies untracked files (`??`), conflicts, and renames.
 
 ### 4. Choose the commit strategy
 
-Let `F` = number of tracked changed files, `D` = line delta from
-`git diff --stat HEAD`.
+The question is not how big the diff is but **how many separable stories it
+tells** — a reviewer should be able to read one commit and understand one change.
 
-- **Single commit** when `F <= 5` AND `D <= 150` → one commit covering every
-  tracked file.
-- **Multi-commit** when `F > 5` OR `D > 150` → group files by the layers below
-  and make one commit per non-empty group.
+- **Single commit** when the whole diff serves one intent, however many files it
+  touches. A rename swept across thirty files is one story; so is a feature whose
+  test and implementation landed together.
+- **Multi-commit** when the diff carries changes a reviewer would want to read —
+  or revert — separately. Group them by the layers below, one commit per
+  non-empty group.
+
+Size is a hint, not the rule: roughly five files or a 150-line delta is where a
+diff usually stops being one story, so look harder above that. Below it, splitting
+is normally noise.
 
 ### 5. Group files (multi-commit mode)
 
@@ -158,11 +161,10 @@ Commits made: N
 
 ## Hard constraints
 
-- NEVER `git add -A` or `git add .` — always stage specific files.
-- NEVER `git commit --amend`.
-- NEVER `git push`.
-- NEVER `git add -f` / force-add `.gitignore`d files.
-- Clean tree (no tracked changes) → `Nothing to commit.` and stop.
-- A failing `git commit` stops the run immediately; report the error, no retry.
-- No empty or generic commit messages.
-- Untracked files are skipped silently; only tracked changes are committed.
+This skill commits and nothing else. Four boundaries hold regardless of what the
+user asks for mid-run — anything beyond them is the user's own call to make:
+
+- `git push`
+- `git commit --amend`
+- `git add -A` / `git add .` — every `git add` names specific files
+- `git add -f` on `.gitignore`d files

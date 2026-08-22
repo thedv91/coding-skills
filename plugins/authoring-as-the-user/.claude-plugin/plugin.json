@@ -1,0 +1,21 @@
+{
+  "name": "authoring-as-the-user",
+  "description": "Set the standard for any text that ships under the user's name — PR/MR descriptions and review comments, commit messages, tickets, docs, messages to colleagues. Every sentence must read as the assignee's own judgement, so a hedge that a tool call could settle is unfinished work, not a caveat: verify what is reachable, report it in measurements, and name only the specific residue that stayed out of reach.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Harry",
+    "email": "thedv91@gmail.com"
+  },
+  "homepage": "https://github.com/thedv91/skills",
+  "repository": "https://github.com/thedv91/skills",
+  "license": "MIT",
+  "keywords": [
+    "pull-request",
+    "merge-request",
+    "commit-message",
+    "code-review",
+    "verification",
+    "technical-writing",
+    "authorship"
+  ]
+}

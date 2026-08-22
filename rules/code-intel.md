@@ -9,9 +9,10 @@ Either present → prefer it over `Grep` / `Glob` / `Read`, and over a blind
 ## codegraph orients, serena decides and edits
 
 - **Explore with codegraph.** One `codegraph_explore` returns verbatim source
-  - call paths + blast radius; treat that source as read. Serena's
-    `get_symbols_overview` → `find_symbol` is the first move only when codegraph
-    is absent or stale (~2s watcher lag after a write).
+  + call paths + blast radius; treat that source as read. Without the MCP tool,
+  `codegraph explore "<symbols or question>"` in a shell prints the same thing.
+  Serena's `get_symbols_overview` → `find_symbol` is the first move only when
+  codegraph is absent or stale (~2s watcher lag after a write).
 - **Decide with serena.** Before changing anything public, the reference list
   comes from `find_referencing_symbols`. Codegraph's `callers` is incomplete
   (measured ~94% against the LSP in one repo) and `impact` is transitive reach,

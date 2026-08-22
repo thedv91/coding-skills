@@ -175,70 +175,13 @@ them only in effects and event handlers.
 That's an infinite render loop. Derive the value inline instead, or sync via an effect
 if it genuinely cannot be derived.
 
-## Concrete anti-patterns (ranked by how often they slip in)
+## Concrete anti-patterns
 
-### #1 — `try / catch` inside a component or custom hook body (HARD bail-out)
-
-**This is the single biggest cause of silent bail-outs.** The compiler's static analysis
-cannot safely memoize across exception control flow, so the moment it sees a
-`try { … } catch { … }` (or `try { … } finally { … }`) inside a component body or custom
-hook body, it **skips memoization for the entire function** — no error, no lint squiggle
-in many setups, just zero benefit. It propagates: a bailed-out hook typically takes its
-caller components down with it.
-
-The fix is always the same: **move the `try/catch` into a module-scope helper** and let
-the hook/component call the helper. The compiler then sees a plain call site and can
-memoize freely.
-
-```tsx
-// ❌ try/catch in hook body → compiler bails out on useCountryCode AND on any
-//    caller component that uses it
-export function useCountryCode(): string {
-  return useMemo(() => {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      return getCountryForTimezone(tz)?.id ?? "default";
-    } catch {
-      return "default";
-    }
-  }, []);
-}
-
-// ✅ try/catch lives in a module-scope helper; hook body is a single return.
-//    Note: useMemo is also dropped — the compiler memoizes the call automatically.
-function detectCountryCode(): string {
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return getCountryForTimezone(tz)?.id ?? "default";
-  } catch {
-    return "default";
-  }
-}
-
-export function useCountryCode(): string {
-  return detectCountryCode();
-}
-```
-
-**Where `try/catch` is fine**: inside module-scope helpers, inside event handlers
-(already off the render path), and inside an effect callback that is a single inline
-arrow with no surrounding render-path scope. Anything else — including `try/finally`
-used for cleanup orchestration — extract to module scope.
-
-### #2 — `useMemo([])` wrapping an environment read
-
-A hook reads a browser global (timezone, locale, `navigator.*`, `matchMedia`, …) and
-wraps it in `useMemo` with `[]` to "compute once". The impure read is the problem, not
-the `useMemo`: lift it into a module-scope helper — same fix as #1. Once the hook body
-is a trivial pure call, the `[]` memo has nothing left to do and can go with it.
-
-### #3 — Inline imperative orchestration inside a hook
-
-Async sequences, retry loops, cleanup chains — move the body into a module-scope helper
-that receives what it needs from the hook, e.g.
-`executeAction(params, { setError, setIsLoading })`. Hooks stay thin (state + wiring),
-which is both easier for the compiler to reason about and easier to unit-test. See
-`detectCountryCode` under #1 for the minimal shape.
+Three shapes cause most real bail-outs: `try/catch` in a component or hook body (the
+hard one), `useMemo([])` wrapping an environment read, and inline imperative
+orchestration inside a hook. Each is written out with its rewrite in
+[`references/anti-patterns.md`](references/anti-patterns.md), together with the
+upstream links — load it when you hit one, or when reviewing a file for bail-outs.
 
 ## Authorship conventions
 
@@ -247,7 +190,8 @@ which is both easier for the compiler to reason about and easier to unit-test. S
   when there's a reason: a value that needs stable identity for an external consumer
   (a library hook's effect dep, a non-React subscriber), or a hot path where profiling
   shows the compiler missed something.
-- **Prefer module-scope pure helpers for imperative logic** — see anti-pattern #3.
+- **Prefer module-scope pure helpers for imperative logic** — see
+  [`references/anti-patterns.md`](references/anti-patterns.md).
 - **Destructure stable primitives out of library-hook results** instead of closing over
   the whole object:
 
@@ -287,7 +231,7 @@ What matters for compiler compatibility:
 | `npx react-compiler-healthcheck --src "path/**"` | CI / pre-commit — static scan, file-scoped                       |
 
 The linter does not catch every bail-out — notably it can stay silent on the
-`try/catch` case above. Treat the ✨ badge and the healthcheck as the ground truth.
+`try/catch` case. Treat the ✨ badge and the healthcheck as the ground truth.
 
 ## Opt-out: "use no memo"
 
@@ -325,10 +269,3 @@ only functions with `"use memo"` are compiled — the inverse of opt-out.
 8. If you added `useMemo`/`useCallback`/`React.memo`, can you name the reason?
    If it was reflex, try the plain version — the compiler likely covers it.
 9. Any `"use no memo"` left in place? Remove once violations are fixed.
-
-## Reference
-
-- React Compiler overview: https://react.dev/learn/react-compiler
-- Rules of React: https://react.dev/reference/rules
-- Incremental adoption: https://react.dev/learn/react-compiler/incremental-adoption
-- try/catch silent bail-out: https://github.com/facebook/react/issues/35644

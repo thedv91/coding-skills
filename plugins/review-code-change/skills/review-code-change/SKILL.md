@@ -28,17 +28,30 @@ or a review of code that is not part of this branch's diff.
 
 ## Workflow
 
-1. **Get the target branch.** Take it as input from the user (e.g. `main`,
-   `develop`, `origin/main`). If none was given, **ASK for it before doing
-   anything else** — do not assume a default.
+1. **Resolve the target branch.** Use what the user gave (e.g. `main`,
+   `develop`, `origin/main`). If none was given, detect the repo's default
+   branch rather than assuming `main` — many repos merge into `dev`, `develop`,
+   or `master`:
+
+   ```
+   git rev-parse --abbrev-ref origin/HEAD   # e.g. "origin/dev" → target = dev
+   ```
+
+   If `origin/HEAD` is unset, fall back to
+   `git branch -rl origin/main origin/master origin/dev origin/develop` (prefer
+   in that order; list the patterns separately — git does not expand `{a,b}`
+   braces, so one quoted brace pattern silently matches nothing). Ask the user
+   only when detection yields nothing or more than one plausible answer. Record
+   in the report whether the target was user-supplied or auto-detected.
 
 2. **Compute the changed set via merge-base** so only this branch's own work is
    reviewed (commits the target made after the branch point are excluded):
    - File list: `git diff --merge-base <target> --name-only`
    - Hunks: `git diff --merge-base <target>`
 
-   These are read-only commands. Never `commit`, `checkout`, `reset`, `push`,
-   or otherwise mutate the repository.
+   Everything this review runs — git, and the graph tools below — is read-only
+   inspection, in the orchestrator and in every agent alike. Never `commit`,
+   `checkout`, `reset`, `push`, or otherwise mutate the repository.
 
 3. **Understand the intent first.** Before judging anything, establish what the
    change is for: read the branch's commit messages
@@ -58,12 +71,11 @@ or a review of code that is not part of this branch's diff.
 
    **Also discover the project's own tech-stack skills.** The bundled
    `references/` are not the only standards. A project commonly installs
-   best-practice skills for its stack (e.g. `vercel-react-best-practices`,
-   `vercel-react-native-skills`, `next-best-practices`, and skills for React Native, Next.js, and other
-   frameworks). These are project-dependent, so they live nowhere in `index.md`
-   — discover them at review time from the host's available skills. Match a skill
-   to the diff by its declared **stack/description, not its name**; when unsure
-   whether one applies, read its `SKILL.md` before deciding. Treat each matching
+   best-practice skills for its own framework, platform, or house style. These
+   are project-dependent, so they live nowhere in `index.md` — discover them at
+   review time from the skills the harness already lists in context. Match a
+   skill to the diff by its declared **stack/description, not its name**; when
+   unsure whether one applies, read its `SKILL.md` before deciding. Treat each matching
    skill as an **additional standard** for the corresponding language bucket, and
    load its guidance only when a changed file falls in its scope — the same
    progressive-disclosure rule as the bundled references.
@@ -95,16 +107,9 @@ or a review of code that is not part of this branch's diff.
      string-keyed lookup, cross-package boundaries — **say so and lower that
      finding's confidence** accordingly.
 
-   These tools are **read-only inspection** only; the review never mutates the
-   repository (see step 2).
-
-6. **Verify each finding with an independent agent before reporting it.** Hand
-   each candidate to a _different_ agent than the one that raised it, tasked to
-   refute it: can it point to the exact line and prove the finding wrong (or trace
-   an input that breaks it)? Drop anything the verifier cannot substantiate — a
-   false positive costs more trust than a missed nit. See _Independent
-   multi-agent review_ for the dispatch and the false-positive list under
-   _Confidence control_.
+6. **Put every candidate finding through refutation before it is reported** —
+   see _Independent multi-agent review_ for how, and _Confidence control_ for the
+   bar it has to clear. A false positive costs more trust than a missed nit.
 
 7. **Report findings grouped by standard**, in the output format below — the
    orchestrator merges the verified findings from every agent into one report.
@@ -112,33 +117,30 @@ or a review of code that is not part of this branch's diff.
 ## Independent multi-agent review
 
 A single pass that both raises a finding and clears it is the weakest link: the
-same context that produced the finding rationalizes it. Run the review as an
-**orchestrator plus independent agents** so each finding is produced and checked
-under fresh, separate context.
+same context that produced the finding rationalizes it. So no agent here ever
+sees another's reasoning — that separation is the whole mechanism, and everything
+below exists to preserve it.
 
-- **Orchestrator (you).** Do steps 1–4 once, then package a shared brief every
-  agent receives verbatim: the target branch, the diff, the changed-file list, a
-  one-paragraph intent summary, the selected reference files, and any
-  project-installed tech-stack skills matched at step 4. The
-  orchestrator does not review — it dispatches, deduplicates, and renders the
-  final report (step 7).
+- **Orchestrator (you).** Resolve the target, compute the diff, read the intent,
+  select the standards — once — then package a brief every agent receives
+  verbatim: target branch, diff, changed-file list, a one-paragraph intent
+  summary, the selected reference files, and any project-installed stack skills
+  you matched. The orchestrator does not review: it dispatches, deduplicates, and
+  renders the final report.
 
-- **Reviewer agents — fan out to find.** Dispatch one independent agent per
-  **standard bucket**, each with fresh context and only its brief plus its own
-  reference file(s). Each performs step 5 (open full files, trace cross-codebase
-  impact via codegraph/Serena) within its remit and returns candidate findings in
-  the output format. Agents never see each other's reasoning — that independence
-  is the point. Default buckets (drop any whose standards weren't selected at
-  step 4; split a large one, merge tiny ones):
+- **Reviewer agents — fan out to find.** One agent per **standard bucket**, each
+  holding only its brief and its own reference file(s). Each opens the full files
+  and traces cross-codebase impact within its remit, then returns candidates in
+  the output format. Default buckets (drop any whose standards weren't selected;
+  split a large one, merge tiny ones):
   - **Security** — `security.md`.
   - **Correctness & intent** — `business-logic.md`, `user-perspective.md`.
   - **Code health** — `code-quality.md`, `performance.md`, `best-practices.md`.
   - **Language** — the triggered subset of `typescript.md`, `react.md`,
-    `nextjs.md`, `nodejs.md`, **plus any project-installed tech-stack skills
-    matched at step 4** (e.g. `react-compiler`, `react-effect-event`). The
-    language agent checks the changed code against both the bundled references
-    and these skills' practices, attributing each finding to the source it came
-    from so the report shows which standard was violated.
+    `nextjs.md`, `nodejs.md`, **plus any project-installed stack skills you
+    matched**. The language agent checks the changed code against both, and
+    attributes each finding to the source it came from so the report shows which
+    standard was violated.
 
   If the host exposes specialist agent types, route a bucket to the matching one
   (security → a security auditor); otherwise a general reviewer agent is fine.
@@ -146,16 +148,13 @@ under fresh, separate context.
 - **Verifier agents — fan in to refute.** After deduplicating candidates by
   (file, line, claim), hand each survivor to a **different** agent than the one
   that raised it, tasked to _refute_ it: point to the exact line and prove it
-  wrong, or trace an input that breaks it. Keep only findings that survive and
-  clear the >80% bar (step 6) — a second set of eyes, not the author.
-
-Every agent is a **read-only inspector** (step 2): it may read, trace, and query
-the graph, but never mutate the repo.
+  wrong, or trace an input that breaks it. Keep only what survives and clears the
+  >80% bar.
 
 **Degraded mode.** Where the host cannot spawn subagents, run the same shape
-sequentially — review one bucket at a time as a self-contained pass, then
-re-examine each candidate adversarially before it ships. Independence is weaker
-this way, so hold the >80% bar more strictly to compensate.
+sequentially — one bucket at a time as a self-contained pass, then re-examine
+each candidate adversarially before it ships. The separation is weaker this way,
+so hold the >80% bar more strictly to compensate.
 
 ## Confidence control
 
@@ -233,10 +232,9 @@ Adding a new standard is two steps and requires **no edit to this file**:
    the file types/paths that trigger it, and a one-line scope.
 
 The file-type → reference mapping lives **only** in `references/index.md`, so it
-stays the single source of truth. The workflow above reads that table at step 4;
-it never hard-codes the list of standards.
+stays the single source of truth: the workflow reads that table, and never
+hard-codes the list of standards.
 
-This applies to standards **bundled** with the skill. A project's own installed
-tech-stack skills are a separate, runtime-discovered source (step 4) and are not
-registered in `index.md` — they vary per project, so the review finds them at
-review time rather than from this table.
+That covers standards **bundled** with the skill. A project's own installed stack
+skills vary per project, so they are never registered here — the review discovers
+them at review time instead.

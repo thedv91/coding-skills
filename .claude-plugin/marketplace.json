@@ -22,18 +22,40 @@
       "tags": ["code-review", "git", "pre-merge", "command"]
     },
     {
-      "name": "adaptive-review",
-      "source": "./plugins/adaptive-review",
-      "description": "Two-mode code review of the current branch's diff. Minimal mode walks the changed code against bundled markdown checklists (git + Read only, no agents, no MCP). Advanced mode adds blast-radius mapping via codegraph/serena, independent reviewer + verifier agents, and browser observation of runtime-class findings via agent-browser. Frontend-first (React/TypeScript/Next.js) with a stack-agnostic core; extend by adding a checklist file, and add per-repo criteria via .claude/review-skills.md. Read-only git.",
-      "category": "code-quality",
-      "tags": ["code-review", "git", "pre-merge", "react", "typescript", "frontend", "codegraph", "serena", "agent-browser"]
-    },
-    {
       "name": "bugfix-pattern-sweep",
       "source": "./plugins/bugfix-pattern-sweep",
       "description": "Read the diff of a bug-fix (PR/MR, branch, or working tree), infer the root-cause anti-pattern it removed, then sweep the whole codebase for sibling occurrences of the same defect. Read-only: it reports and ranks, it does not edit.",
       "category": "code-quality",
       "tags": ["code-review", "bugfix", "root-cause", "sibling-bugs", "git"]
+    },
+    {
+      "name": "authoring-as-the-user",
+      "source": "./plugins/authoring-as-the-user",
+      "description": "Set the standard for any text that ships under the user's name — PR/MR descriptions and review comments, commit messages, tickets, docs, messages to colleagues. Every sentence must read as the assignee's own judgement, so a hedge that a tool call could settle is unfinished work, not a caveat: verify what is reachable, report it in measurements, and name only the specific residue that stayed out of reach.",
+      "category": "workflow",
+      "tags": [
+        "pull-request",
+        "merge-request",
+        "commit-message",
+        "code-review",
+        "verification",
+        "technical-writing"
+      ]
+    },
+    {
+      "name": "testid-instrumentation",
+      "source": "./plugins/testid-instrumentation",
+      "description": "Add stable data-testid attributes that serve two jobs at once — selectors that survive refactors, and identity: an inspected DOM node greps straight back to the component that rendered it, with no second attribute. Detects the project's existing attribute name, naming convention, and test-runner config before editing; framework-agnostic (React, Vue, Angular, Svelte, Solid, web components, server-side templates). Also does the reverse lookup: inspected HTML to source file.",
+      "category": "testing",
+      "tags": [
+        "data-testid",
+        "e2e",
+        "playwright",
+        "cypress",
+        "testing-library",
+        "selectors",
+        "debugging"
+      ]
     },
     {
       "name": "react-compiler",
@@ -48,6 +70,13 @@
       "description": "Use React's useEffectEvent to separate reactive dependencies from non-reactive latest-value reads inside Effects. React 19.2+.",
       "category": "react",
       "tags": ["react", "useEffectEvent", "hooks"]
+    },
+    {
+      "name": "react-spring",
+      "source": "./plugins/react-spring",
+      "description": "Spring-physics animation with react-spring v9+ (@react-spring/web): which hook fits which job, the object-vs-function config forms and what each returns, imperative control via SpringRef, and the mistakes that silently produce no animation. Per-hook signatures load on demand.",
+      "category": "react",
+      "tags": ["react", "react-spring", "animation", "hooks", "useSpring", "useTransition"]
     },
     {
       "name": "file-hooks",

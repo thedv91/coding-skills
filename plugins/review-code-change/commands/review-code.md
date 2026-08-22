@@ -153,26 +153,22 @@ label each finding with the layer it belongs to. Record the split in
 ## Use the skills you already have
 
 The harness lists every available skill in your context, including plugin skills.
-**Do not go scanning the filesystem for `SKILL.md` files** — the on-disk scan
-misses `~/.claude/plugins/**` (where most skills actually live) and costs a
-round-trip to rediscover what you were already told.
+**Do not go scanning the filesystem for `SKILL.md` files** — installed plugins do
+not all live under one predictable path, so the on-disk scan misses most of them
+and costs a round-trip to rediscover what you were already told.
 
-From that list, pick up what fits this diff and invoke it with the `Skill` tool:
+From that list, pick up what fits this diff and invoke it with the `Skill` tool.
+Match on each skill's declared scope, not on its name:
 
-1. **Code-review skills** (e.g. `review-code-change:review-code-change`,
-   `code-review`, `engineering:code-review`) → use their criteria/checklist
-   together with the steps below. Prefer their standards where they are more
-   detailed than this file.
-2. **Domain skills matching the changed files** (e.g. `testing-strategy`,
-   `security-and-hardening`, `accessibility-review`, `react-compiler-compliance`,
-   or an org's internal skill) → apply their perspective to the parts of the
-   diff in their scope.
-3. **Report-export skills** (e.g. `docx`, `pdf`) → only if the user asks to
-   export a file.
+1. **Code-review skills** → use their criteria together with the steps below.
+   Prefer their standards where they are more detailed than this file.
+2. **Domain skills whose scope covers a changed file** — testing, security,
+   accessibility, a framework's own rules, an org's internal conventions →
+   apply their perspective to the part of the diff they cover.
+3. **Report-export skills** → only if the user asks to export a file.
 
-Briefly tell the user which skills you picked up and what for, e.g. _"Applied:
-engineering:code-review (checklist), react-compiler-compliance (hooks in the
-diff)."_ If none is relevant → skip silently.
+Briefly tell the user which skills you picked up and what for. If none is
+relevant → skip silently.
 
 ## Map the BLAST RADIUS first (mandatory, do not skip)
 

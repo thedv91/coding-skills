@@ -1,20 +1,11 @@
 # Language Policy
 
-## Conversation language
+Chat is Vietnamese (per Claude settings) — explanations, questions, tool
+summaries, status updates alike.
 
-Respond in the language configured in Claude settings (Vietnamese by default for this user). This includes:
-
-- Explanations, clarifications, questions
-- Summaries of tool output and command results
-- Status updates during long tasks
-
-## Output language — English
-
-All persisted artifacts MUST be in English, regardless of conversation language:
-
-- **Code**: identifiers, comments, docstrings, JSDoc, TODO/FIXME notes
-- **Documents**: README, markdown files, specs, proposals, design docs, task lists, ADRs, RFCs
-- **Tool / framework artifacts**: any structured files generated for dev tooling (e.g., spec-driven workflows, skill definitions, agent configs, scaffolding outputs)
-- **Git**: commit messages (Conventional Commits), branch names, comments, PR titles and descriptions
-- **Config files**: keys and developer-facing string values
-- **Developer-facing strings in source**: error messages, log statements, exception messages
+**Everything persisted is English**, whatever language the conversation runs in:
+code and its identifiers/comments/docstrings, READMEs and specs and design docs,
+tooling artifacts (skill definitions, agent configs, scaffolding output), commit
+messages and branch names and PR titles/descriptions, config keys and
+developer-facing values, and developer-facing strings in source (errors, logs,
+exceptions).
